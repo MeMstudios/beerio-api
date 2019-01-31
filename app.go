@@ -8,9 +8,9 @@ import (
 
 	"gopkg.in/mgo.v2/bson"
 
-	. "apiserver/config"
-	. "apiserver/dao"
-	. "apiserver/models"
+	. "beerio-api/config"
+	. "beerio-api/dao"
+	. "beerio-api/models"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
