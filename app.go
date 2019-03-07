@@ -19,10 +19,32 @@ import (
 var config = Config{}
 var dao = DAO{}
 
-const apiUrl = "http://localhost:3000/"
+// browser imposed preflight OPTIONS methods
+func BeerPreFlightResponse(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Origin")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	respondWithJson(w, http.StatusOK, "Do anything with beers!")
+}
+func PostOnlyPreFlightResponse(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Origin")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	respondWithJson(w, http.StatusOK, "posts allowed")
+}
+func GetOnlyPreFlightResponse(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Origin")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	respondWithJson(w, http.StatusOK, "gets allowed")
+}
 
 // GET list of beers
 func AllBeersEndPoint(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	beers, err := dao.FindAll()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -33,6 +55,7 @@ func AllBeersEndPoint(w http.ResponseWriter, r *http.Request) {
 
 // GET a beer by its ID
 func FindBeerEndpoint(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	params := mux.Vars(r)
 	beer, err := dao.FindById(params["id"])
 	if err != nil {
@@ -44,6 +67,7 @@ func FindBeerEndpoint(w http.ResponseWriter, r *http.Request) {
 
 // POST a new beer
 func CreateBeerEndPoint(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	defer r.Body.Close()
 	var beer Beer
 	if err := json.NewDecoder(r.Body).Decode(&beer); err != nil {
@@ -61,6 +85,7 @@ func CreateBeerEndPoint(w http.ResponseWriter, r *http.Request) {
 // PUT update an existing beer
 func UpdateBeerEndPoint(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	var beer Beer
 	if err := json.NewDecoder(r.Body).Decode(&beer); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -76,6 +101,7 @@ func UpdateBeerEndPoint(w http.ResponseWriter, r *http.Request) {
 // DELETE an existing beer
 func DeleteBeerEndPoint(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	var beer Beer
 	if err := json.NewDecoder(r.Body).Decode(&beer); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -91,6 +117,7 @@ func DeleteBeerEndPoint(w http.ResponseWriter, r *http.Request) {
 // POST A new user
 func CreateUserEndPoint(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	var user User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -115,6 +142,7 @@ func CreateUserEndPoint(w http.ResponseWriter, r *http.Request) {
 //POST A user password check
 func LoginEndPoint(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	var check UserCheck
 	if err := json.NewDecoder(r.Body).Decode(&check); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -148,6 +176,7 @@ func LoginEndPoint(w http.ResponseWriter, r *http.Request) {
 //POST a favorite beer
 func FavoriteEndPoint(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	var fav Favorite
 	if err := json.NewDecoder(r.Body).Decode(&fav); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -167,6 +196,8 @@ func FavoriteEndPoint(w http.ResponseWriter, r *http.Request) {
 
 //GET all favorites
 func GetFavoritesEndpoint(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.Header().Set("Access-Control-Allow-Origin", FrontendURL)
 	params := mux.Vars(r)
 	if checkLoggedIn(params["id"], r) {
 		favorites, err := dao.GetFavorites(params["id"])
@@ -176,7 +207,6 @@ func GetFavoritesEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 		respondWithJson(w, http.StatusOK, favorites)
 	}
-
 }
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
@@ -223,11 +253,17 @@ func main() {
 	r.HandleFunc("/beers/{id}", FindBeerEndpoint).Methods("GET")
 
 	//User endpoints
-	r.HandleFunc("/users", CreateUserEndPoint).Methods("POST")
+	r.HandleFunc("/register", CreateUserEndPoint).Methods("POST")
 	r.HandleFunc("/login", LoginEndPoint).Methods("POST")
 	r.HandleFunc("/addFavorite", FavoriteEndPoint).Methods("POST")
 	r.HandleFunc("/favorites", GetFavoritesEndpoint).Methods("GET")
 
+	//PreFlight Responses
+	r.HandleFunc("/beers", BeerPreFlightResponse).Methods("OPTIONS")
+	r.HandleFunc("/login", PostOnlyPreFlightResponse).Methods("OPTIONS")
+	r.HandleFunc("/register", PostOnlyPreFlightResponse).Methods("OPTIONS")
+	r.HandleFunc("/addFavorite", PostOnlyPreFlightResponse).Methods("OPTIONS")
+	r.HandleFunc("/favorites", GetOnlyPreFlightResponse).Methods("OPTIONS")
 	//Release the hounds
 	if err := http.ListenAndServe(":3000", r); err != nil {
 		log.Fatal(err)
